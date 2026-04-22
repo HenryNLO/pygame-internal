@@ -16,6 +16,9 @@ BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
 RED = (255, 0, 0)
 
+# Title screen state
+game_started = False
+player_name = ""
 
 class Bullet:
     def __init__(self, x, y, vx, vy, damage=10, radius=4, life=2.0, color=YELLOW):
@@ -39,10 +42,6 @@ class Bullet:
     def alive(self):
         return self.life > 0 and 0 <= self.x <= WIDTH and 0 <= self.y <= HEIGHT
 
-
-# ============================
-#   ENEMY PROJECTILE CLASS
-# ============================
 
 class EnemyProjectile:
     def __init__(self, x, y, vx, vy, speed=250, radius=5, color=(255, 100, 100)):
@@ -162,12 +161,10 @@ class Gun:
         return bullets
 
 
-# ============================
-#        ENEMY SYSTEM
-# ============================
-
 class BaseEnemy:
-    def __init__(self, health, speed, radius, color):
+    def __init__(self, health, speed, radius, color, contact_damage):
+        self.contact_damage = contact_damage
+
         side = random.choice(["top", "bottom", "left", "right"])
         if side == "top":
             self.x = random.randint(0, WIDTH)
@@ -205,29 +202,21 @@ class BaseEnemy:
     def alive(self):
         return self.health > 0
 
-
 class BasicEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(25, 100, 14, RED)
-
+        super().__init__(25, 100, 14, RED, contact_damage=10)
 
 class FastEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(15, 180, 12, YELLOW)
-
+        super().__init__(15, 180, 12, YELLOW, contact_damage=7)
 
 class TankEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(60, 60, 20, (150, 0, 0))
-
-
-# ============================
-#     RANGED ENEMY
-# ============================
+        super().__init__(60, 90, 20, (150, 0, 0), contact_damage=20)
 
 class RangedEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(20, 80, 16, (200, 150, 255))
+        super().__init__(20, 80, 16, (200, 150, 255), contact_damage=5)
         self.shoot_cooldown = 1.2
         self.shoot_timer = 0
 
@@ -257,10 +246,6 @@ class RangedEnemy(BaseEnemy):
 
         return EnemyProjectile(self.x, self.y, vx, vy)
 
-
-# ============================
-#     ENEMY SPAWN TABLE
-# ============================
 
 enemy_types = [
     BasicEnemy,
@@ -341,6 +326,58 @@ class Player:
         pygame.draw.circle(surf, self.color, (int(self.x), int(self.y)), self.radius)
 
 
+# ============================
+#       TITLE SCREEN
+# ============================
+
+font_big = pygame.font.Font(None, 72)
+font_small = pygame.font.Font(None, 36)
+
+while not game_started:
+    screen.fill(BLACK)
+
+    title = font_big.render("SHOOTER GAME", True, WHITE)
+    prompt = font_small.render("Enter your name:", True, WHITE)
+    name_text = font_small.render(player_name, True, GREEN)
+
+    screen.blit(title, (WIDTH//2 - title.get_width()//2, 120))
+    screen.blit(prompt, (WIDTH//2 - prompt.get_width()//2, 250))
+    screen.blit(name_text, (WIDTH//2 - name_text.get_width()//2, 300))
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if len(player_name) > 0:
+                    game_started = True
+
+            elif event.key == pygame.K_BACKSPACE:
+                player_name = player_name[:-1]
+
+            else:
+                if len(player_name) < 12:
+                    player_name += event.unicode
+
+    pygame.display.flip()
+    clock.tick(60)
+
+
+# MAIN GAME LOOP
+
+
+player = Player(WIDTH // 2, HEIGHT // 2)
+
+bullets = []
+enemies = []
+enemy_projectiles = []
+shooting = False
+enemy_spawn_timer = 0
+
+# MAIN GAME LOOP
+
 player = Player(WIDTH // 2, HEIGHT // 2)
 
 bullets = []
@@ -350,6 +387,8 @@ shooting = False
 enemy_spawn_timer = 0
 
 running = True
+game_over = False
+
 while running:
     dt = clock.tick(60) / 1000.0
 
@@ -357,80 +396,104 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                shooting = True
+        # Restart / Quit when dead
+        if game_over:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    # Reset everything
+                    player = Player(WIDTH // 2, HEIGHT // 2)
+                    bullets = []
+                    enemies = []
+                    enemy_projectiles = []
+                    game_over = False
 
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                shooting = False
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+
+        # Shooting input
+        if not game_over:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    shooting = True
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    shooting = False
 
     keys = pygame.key.get_pressed()
 
-    if keys[pygame.K_SPACE] and player.dash_cooldown_timer <= 0 and not player.is_dashing:
-        player.start_dash()
+    # GAMEPLAY ONLY IF NOT DEAD
+    if not game_over:
 
-    if keys[pygame.K_1]:
-        player.gun.set_gun("pistol")
-    if keys[pygame.K_2]:
-        player.gun.set_gun("shotgun")
-    if keys[pygame.K_3]:
-        player.gun.set_gun("machinegun")
-    if keys[pygame.K_4]:
-        player.gun.set_gun("drumgun")
-    if keys[pygame.K_5]:
-        player.gun.set_gun("cluckgun")
-    if keys[pygame.K_6]:
-        player.gun.set_gun("slugger")
-    if keys[pygame.K_7]:
-        player.gun.set_gun("zero")
+        if keys[pygame.K_SPACE] and player.dash_cooldown_timer <= 0 and not player.is_dashing:
+            player.start_dash()
 
-    player.handle_input(keys)
-    player.update(dt)
+        if keys[pygame.K_1]: player.gun.set_gun("pistol")
+        if keys[pygame.K_2]: player.gun.set_gun("shotgun")
+        if keys[pygame.K_3]: player.gun.set_gun("machinegun")
+        if keys[pygame.K_4]: player.gun.set_gun("drumgun")
+        if keys[pygame.K_5]: player.gun.set_gun("cluckgun")
+        if keys[pygame.K_6]: player.gun.set_gun("slugger")
+        if keys[pygame.K_7]: player.gun.set_gun("zero")
 
-    mx, my = pygame.mouse.get_pos()
+        player.handle_input(keys)
+        player.update(dt)
 
-    if shooting and player.gun.can_fire():
-        new_bullets = player.gun.fire(player.x, player.y, mx, my)
-        bullets.extend(new_bullets)
+        mx, my = pygame.mouse.get_pos()
 
-    for b in bullets:
-        b.update(dt)
-    bullets = [b for b in bullets if b.alive()]
+        if shooting and player.gun.can_fire():
+            bullets.extend(player.gun.fire(player.x, player.y, mx, my))
 
-    enemy_spawn_timer -= dt
-    if enemy_spawn_timer <= 0:
-        enemies.append(random.choice(enemy_types)())
-        enemy_spawn_timer = max(0.3, 1.5 - len(enemies) * 0.01)
-
-    for e in enemies:
-        e.update(dt, player)
-
-        if isinstance(e, RangedEnemy):
-            proj = e.try_shoot(player)
-            if proj:
-                enemy_projectiles.append(proj)
-
-    for e in enemies:
         for b in bullets:
-            dx = e.x - b.x
-            dy = e.y - b.y
-            if dx * dx + dy * dy < (e.radius + b.radius) ** 2:
-                e.hit(b.damage)
-                b.life = 0
+            b.update(dt)
+        bullets = [b for b in bullets if b.alive()]
 
-    enemies = [e for e in enemies if e.alive()]
+        enemy_spawn_timer -= dt
+        if enemy_spawn_timer <= 0:
+            enemies.append(random.choice(enemy_types)())
+            enemy_spawn_timer = max(0.3, 1.5 - len(enemies) * 0.01)
 
-    for p in enemy_projectiles:
-        p.update(dt)
-    enemy_projectiles = [p for p in enemy_projectiles if p.alive()]
+        for e in enemies:
+            e.update(dt, player)
+            if isinstance(e, RangedEnemy):
+                proj = e.try_shoot(player)
+                if proj:
+                    enemy_projectiles.append(proj)
 
-    for p in enemy_projectiles:
-        dx = p.x - player.x
-        dy = p.y - player.y
-        if dx * dx + dy * dy < (player.radius + p.radius) ** 2:
-            player.health -= 10 * dt
+        # Bullet hits
+        for e in enemies:
+            for b in bullets:
+                dx = e.x - b.x
+                dy = e.y - b.y
+                if dx * dx + dy * dy < (e.radius + b.radius) ** 2:
+                    e.hit(b.damage)
+                    b.life = 0
 
+        enemies = [e for e in enemies if e.alive()]
+
+        for p in enemy_projectiles:
+            p.update(dt)
+        enemy_projectiles = [p for p in enemy_projectiles if p.alive()]
+
+        # Projectile hits player
+        for p in enemy_projectiles:
+            dx = p.x - player.x
+            dy = p.y - player.y
+            if dx * dx + dy * dy < (player.radius + p.radius) ** 2:
+                player.health -= 10 * dt
+
+        # Contact damage
+        for e in enemies:
+            dx = e.x - player.x
+            dy = e.y - player.y
+            if dx * dx + dy * dy < (e.radius + player.radius) ** 2:
+                player.health -= e.contact_damage * dt
+
+        # Check death
+        if player.health <= 0:
+            game_over = True
+
+    # DRAWING
     screen.fill(BLACK)
     player.draw(screen)
 
@@ -445,11 +508,24 @@ while running:
 
     font = pygame.font.Font(None, 26)
     status = font.render(
-        f"Health: {int(player.health)} | Bullets: {len(bullets)} | Enemies: {len(enemies)} | Gun: {player.gun.gun_type}",
+        f"{player_name} | Health: {int(player.health)} | Bullets: {len(bullets)} | Enemies: {len(enemies)} | Gun: {player.gun.gun_type}",
         True,
         WHITE
     )
     screen.blit(status, (10, 10))
+
+    # DEATH SCREEN
+    if game_over:
+        death_big = pygame.font.Font(None, 72)
+        death_small = pygame.font.Font(None, 36)
+
+        text1 = death_big.render("YOU DIED", True, RED)
+        text2 = death_small.render(f"{player_name}", True, WHITE)
+        text3 = death_small.render("Press R to Restart or ESC to Quit", True, WHITE)
+
+        screen.blit(text1, (WIDTH//2 - text1.get_width()//2, 180))
+        screen.blit(text2, (WIDTH//2 - text2.get_width()//2, 260))
+        screen.blit(text3, (WIDTH//2 - text3.get_width()//2, 330))
 
     pygame.display.flip()
 
