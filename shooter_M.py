@@ -2,6 +2,11 @@
 import math
 import random
 
+'''
+My goal for merit was to add the following features:
+- 
+
+'''
 # Initialize Pygame
 pygame.init()
 
@@ -123,16 +128,11 @@ class Gun:
             self.spread = 0
             self.pellets = 1
 
-        elif gun_type == "zero":
-            self.fire_rate = 0.5
-            self.speed = 800
-            self.bullet_damage = 20
-            self.bullet_radius = 5
-            self.spread = 25
-            self.pellets = 2
 
+    # Gun update and firing logic remains unchanged
     def update(self, dt):
         self.cooldown = max(0, self.cooldown - dt)
+
 
     def can_fire(self):
         return self.cooldown <= 0
@@ -382,8 +382,7 @@ while running:
         player.gun.set_gun("cluckgun")
     if keys[pygame.K_6]:
         player.gun.set_gun("slugger")
-    if keys[pygame.K_7]:
-        player.gun.set_gun("zero")
+
 
     player.handle_input(keys)
     player.update(dt)

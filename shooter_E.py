@@ -437,6 +437,7 @@ while running:
                     enemies = []
                     enemy_projectiles = []
                     enemy_particles = []
+                    game_time = 0  
                     game_over = False
 
                 if event.key == pygame.K_ESCAPE:
@@ -562,10 +563,11 @@ while running:
 
     font = pygame.font.Font(None, 26)
     status = font.render(
-        f"{player_name} | Health: {int(player.health)} | Bullets: {len(bullets)} | Enemies: {len(enemies)} | Gun: {player.gun.gun_type}",
+        f"{player_name} | Time: {int(game_time)}s | Health: {int(player.health)} | Bullets: {len(bullets)} | Gun: {player.gun.gun_type}",
         True,
         WHITE
     )
+
     screen.blit(status, (10, 10))
 
     # DEATH SCREEN
