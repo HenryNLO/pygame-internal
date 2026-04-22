@@ -211,6 +211,7 @@ while running:
 
     keys = pygame.key.get_pressed()
 
+    # This is where I added my custom gun functionality
     # Gun switching
     if keys[pygame.K_1]:
         player.gun.set_gun("pistol")
