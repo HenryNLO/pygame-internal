@@ -7,7 +7,7 @@ pygame.init()
 
 WIDTH, HEIGHT = 700, 500
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Shooter - Enemies Added")
+pygame.display.set_caption("Space invaders 2")
 clock = pygame.time.Clock()
 
 WHITE = (255, 255, 255)
@@ -42,6 +42,28 @@ class Bullet:
     def alive(self):
         return self.life > 0 and 0 <= self.x <= WIDTH and 0 <= self.y <= HEIGHT
 
+class EnemyParticle:
+    def __init__(self, x, y, color, size, vx, vy, life):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.size = size
+        self.vx = vx
+        self.vy = vy
+        self.life = life
+
+    def update(self, dt):
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.life -= dt
+        self.size = max(0, self.size - dt * 10)
+
+    def draw(self, surf):
+        if self.life > 0:
+            pygame.draw.circle(surf, self.color, (int(self.x), int(self.y)), int(self.size))
+
+    def alive(self):
+        return self.life > 0
 
 class EnemyProjectile:
     def __init__(self, x, y, vx, vy, speed=250, radius=5, color=(255, 100, 100)):
@@ -129,6 +151,14 @@ class Gun:
             self.bullet_radius = 5
             self.spread = 25
             self.pellets = 2
+
+        elif gun_type == "d8bu#g_Gvn":
+            self.fire_rate = 0.1
+            self.speed = 300
+            self.bullet_damage = 2
+            self.bullet_radius = 3
+            self.spread = 35
+            self.pellets = 6
 
     def update(self, dt):
         self.cooldown = max(0, self.cooldown - dt)
@@ -376,10 +406,10 @@ enemy_projectiles = []
 shooting = False
 enemy_spawn_timer = 0
 
-# MAIN GAME LOOP
-
+# MAIN GAME LOOP SETUP
 player = Player(WIDTH // 2, HEIGHT // 2)
 
+enemy_particles = []
 bullets = []
 enemies = []
 enemy_projectiles = []
@@ -388,6 +418,7 @@ enemy_spawn_timer = 0
 
 running = True
 game_over = False
+game_time = 0
 
 while running:
     dt = clock.tick(60) / 1000.0
@@ -405,6 +436,7 @@ while running:
                     bullets = []
                     enemies = []
                     enemy_projectiles = []
+                    enemy_particles = []
                     game_over = False
 
                 if event.key == pygame.K_ESCAPE:
@@ -412,17 +444,16 @@ while running:
 
         # Shooting input
         if not game_over:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    shooting = True
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                shooting = True
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                shooting = False
 
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:
-                    shooting = False
 
     keys = pygame.key.get_pressed()
 
-    # GAMEPLAY ONLY IF NOT DEAD
+    # PLAY ONLY IF NOT DEAD
+    game_time += dt
     if not game_over:
 
         if keys[pygame.K_SPACE] and player.dash_cooldown_timer <= 0 and not player.is_dashing:
@@ -435,6 +466,7 @@ while running:
         if keys[pygame.K_5]: player.gun.set_gun("cluckgun")
         if keys[pygame.K_6]: player.gun.set_gun("slugger")
         if keys[pygame.K_7]: player.gun.set_gun("zero")
+        if keys[pygame.K_8]: player.gun.set_gun("d8bu#g_Gvn")
 
         player.handle_input(keys)
         player.update(dt)
@@ -469,7 +501,25 @@ while running:
                     e.hit(b.damage)
                     b.life = 0
 
-        enemies = [e for e in enemies if e.alive()]
+        new_enemies = []
+        for e in enemies:
+            if e.alive():
+                new_enemies.append(e)
+            else:
+                # Spawn death particles (bigger + longer lasting)
+                for _ in range(20):
+                    angle = random.random() * math.tau
+                    speed = random.uniform(50, 200)
+                    vx = math.cos(angle) * speed
+                    vy = math.sin(angle) * speed
+                    enemy_particles.append(
+                        EnemyParticle(e.x, e.y, e.color, e.radius, vx, vy, 1.2)
+                    )
+        enemies = new_enemies
+
+        for p in enemy_particles:
+            p.update(dt)
+        enemy_particles = [p for p in enemy_particles if p.alive()]
 
         for p in enemy_projectiles:
             p.update(dt)
@@ -505,6 +555,10 @@ while running:
 
     for p in enemy_projectiles:
         p.draw(screen)
+    
+    for p in enemy_particles:
+        p.draw(screen)
+   
 
     font = pygame.font.Font(None, 26)
     status = font.render(
