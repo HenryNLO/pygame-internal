@@ -198,7 +198,10 @@ class Gun:
 # ============================
 # Base class for all enemy types with common behavior
 class BaseEnemy:
-    def __init__(self, health, speed, radius, color):
+    def __init__(self, health, speed, radius, color, contact_damage):
+        # Damage dealt to the player when touching the enemy
+        self.contact_damage = contact_damage
+        
         # Randomly spawn from edges of screen
         side = random.choice(["top", "bottom", "left", "right"])
         if side == "top":
@@ -247,19 +250,19 @@ class BaseEnemy:
 # Basic enemy - balanced stats
 class BasicEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(25, 100, 14, RED)
+        super().__init__(25, 100, 14, RED, contact_damage=10)
 
 
 # Fast enemy - low health, high speed
 class FastEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(15, 180, 12, YELLOW)
+        super().__init__(15, 180, 12, YELLOW, contact_damage=7)
 
 
 # Tank enemy - high health, low speed
 class TankEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(60, 60, 20, (150, 0, 0))
+        super().__init__(60, 60, 20, (150, 0, 0), contact_damage=20)
 
 
 # ============================
@@ -268,7 +271,7 @@ class TankEnemy(BaseEnemy):
 # Enemy that shoots projectiles at the player instead of rushing in
 class RangedEnemy(BaseEnemy):
     def __init__(self):
-        super().__init__(20, 80, 16, (200, 150, 255))
+        super().__init__(20, 80, 16, (200, 150, 255), contact_damage=5)
         self.shoot_cooldown = 1.2  # Seconds between shots
         self.shoot_timer = 0  # Time until next shot
 
@@ -520,6 +523,14 @@ while running:
         # Check circular collision
         if dx * dx + dy * dy < (player.radius + p.radius) ** 2:
             player.health -= 10 * dt  # Deal damage over time
+
+    # ============ COLLISION: ENEMY CONTACT DAMAGE ============
+    for e in enemies:
+        dx = e.x - player.x
+        dy = e.y - player.y
+        # Check circular collision
+        if dx * dx + dy * dy < (e.radius + player.radius) ** 2:
+            player.health -= e.contact_damage * dt
 
     # ============ RENDERING ============
     # Clear screen
